@@ -1,0 +1,14 @@
+{
+  "name": "service-generator",
+  "main": "service-generator.js",
+  "version": "0.0.0",
+  "homepage": "https://github.com/calary/service-generator",
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
