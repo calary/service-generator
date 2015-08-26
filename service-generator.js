@@ -8,44 +8,72 @@ config = {
   }
 }
 */
-(function(){
+(function() {
   var href = window.location.href;
-  var isConnected = !/duapp/.test(href);
-  var isOnline = /http/.test(href);
-  function ajax(url, type, data, succ, fail){
-    $.ajax( {    
-      url: url,
-      data: data,    
-      type: type,    
-      cache: false,    
-      dataType: 'json',    
+  function ajax(info, data, succ, fail, interceptor) {
+    if(info.hasLock) {
+      if(info.lock) {
+        return;
+      }
+      info.lock = true;
+    }
+    $.ajax({
+      url: info.url,
+      type: info.type || 'GET',
+      data: data,
+      cache: false,
+      dataType: 'json',
+      timeout: 10000,
       success: function(data) {
-        if(succ) {
-          succ(data);
+        if (typeof data == 'string') {
+          data = JSON.parse(data);
         }
-      },    
-      error: function() {    
-        if(fail) {
-          fail();
+        if(info.hasLock) {
+          info.lock = false;
         }
-      }    
-    });  
+        if (interceptor(data, succ, fail)) {
+          return;
+        }
+        succ && succ(data);
+      },
+      error: function() {
+        if (interceptor(null, succ, fail)) {
+          return;
+        }
+        fail && fail();
+      }
+    });
   }
-  function serviceGenerator(config){
-    var apiName, apiInfo, gene = {};
-    for(apiName in config) {
-      gene[apiName] = (function(curApiName){
+  function ajax2(info, data, succ, fail, interceptor) {
+    if(info.hasLock) {
+      if(info.lock) {
+        return;
+      }
+      info.lock = true;
+    }
+    setTimeout(function() {
+      if(info.hasLock) {
+         info.lock = false;
+      }
+      if (interceptor(info.fakeData, succ, fail)) {
+        return;
+      }
+      succ && succ(info.fakeData);
+    }, 1000);
+  }
+  function serviceGenerator(config) {
+    var apiName, apiInfo, gene = {},
+    debug = config.debug || false,
+    interceptor = config.interceptor ||
+    function() {};
+    delete config.debug;
+    delete config.interceptor;
+    for (apiName in config) {
+      gene[apiName] = (function(apiName) {
         var apiInfo = config[apiName];
         return function(data, succ, fail) {
-          if(isConnected && isOnline) {
-            ajax(apiInfo.url, apiInfo.method || 'GET', data, succ, fail);
-          } else if ( !isConnected && isOnline && apiInfo.fakeJson){
-            ajax(apiInfo.fakeJson, apiInfo.method || 'GET', data, succ, fail);
-          } else {
-            succ && setTimeout(function(){
-              succ(apiInfo.fakeData);
-            }, 1000);
-          }
+          var call = debug ? ajax2 : ajax;
+          call(apiInfo, data, succ, fail, interceptor);
         }
       })(apiName);
     }
