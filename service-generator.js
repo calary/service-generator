@@ -8,12 +8,14 @@ config = {
   }
 }
 */
-(function() {
+(function($) {
   var href = window.location.href;
   function ajax(info, data, succ, fail, interceptor) {
+    var defer = $.Deferred();
     if(info.hasLock) {
       if(info.lock) {
-        return;
+        defer.reject();
+        return defer.promise();
       }
       info.lock = true;
     }
@@ -22,32 +24,31 @@ config = {
       type: info.type || 'GET',
       data: data,
       cache: false,
-      dataType: 'json',
+      dataType: info.jsonp ? 'jsonp' : 'json',
+      jsonp: info.jsonp,
       timeout: 10000,
-      success: function(data) {
-        if (typeof data == 'string') {
-          data = JSON.parse(data);
-        }
+    }).then(function(data){
         if(info.hasLock) {
           info.lock = false;
         }
         if (interceptor(data, succ, fail)) {
+          defer.reject();
           return;
         }
         succ && succ(data);
-      },
-      error: function() {
-        if (interceptor(null, succ, fail)) {
-          return;
-        }
-        fail && fail();
-      }
+        defer.resolve(data);
+    }, function(){
+      fail && fail();
+      defer.reject();
     });
+    return defer.promise();
   }
   function ajax2(info, data, succ, fail, interceptor) {
+    var defer = $.Deferred();
     if(info.hasLock) {
       if(info.lock) {
-        return;
+        defer.reject();
+        return defer.promise();
       }
       info.lock = true;
     }
@@ -56,10 +57,13 @@ config = {
          info.lock = false;
       }
       if (interceptor(info.fakeData, succ, fail)) {
+        defer.reject();
         return;
       }
       succ && succ(info.fakeData);
+      defer.resolve(info.fakeData);
     }, 1000);
+    return defer.promise();
   }
   function serviceGenerator(config) {
     var apiName, apiInfo, gene = {},
@@ -73,11 +77,11 @@ config = {
         var apiInfo = config[apiName];
         return function(data, succ, fail) {
           var call = debug ? ajax2 : ajax;
-          call(apiInfo, data, succ, fail, interceptor);
+          return call(apiInfo, data, succ, fail, interceptor);
         }
       })(apiName);
     }
     return gene;
   }
   window.serviceGenerator = serviceGenerator;
-})();
+})(jQuery);
