@@ -28,9 +28,7 @@ config = {
       jsonp: info.jsonp,
       timeout: 10000,
     }).then(function(data){
-        if(info.hasLock) {
-          info.lock = false;
-        }
+        
         if (interceptor(data, succ, fail)) {
           defer.reject();
           return;
@@ -40,6 +38,10 @@ config = {
     }, function(){
       fail && fail();
       defer.reject();
+    }).always(function(){
+      if(info.hasLock) {
+        info.lock = false;
+      }
     });
     return defer.promise();
   }
